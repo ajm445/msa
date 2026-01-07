@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Boxes, Loader2, Upload, FileText, Sparkles } from 'lucide-react';
+import { Boxes, Loader2, Upload, FileText, Sparkles, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import CodeUploadTab from '@/components/analysis/CodeUploadTab';
 import TextDescriptionTab from '@/components/analysis/TextDescriptionTab';
+import { analysisService } from '@/services/analysisService';
 
 function MainPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('code');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState(null);
 
   const [codeState, setCodeState] = useState({
     file: null,
@@ -25,40 +28,65 @@ function MainPage() {
   });
 
   const handleAnalyze = async () => {
+    // 유효성 검사
     if (activeTab === 'code') {
       if (!codeState.file) {
-        alert('파일을 업로드해주세요.');
+        setError('파일을 업로드해주세요.');
         return;
       }
       if (!codeState.language) {
-        alert('언어/프레임워크를 선택해주세요.');
+        setError('언어/프레임워크를 선택해주세요.');
         return;
       }
     } else {
       if (!textState.description || textState.description.length < 50) {
-        alert('프로젝트 설명을 50자 이상 입력해주세요.');
+        setError('프로젝트 설명을 50자 이상 입력해주세요.');
         return;
       }
     }
 
+    setError(null);
     setIsAnalyzing(true);
     setProgress(0);
 
+    // 프로그레스 애니메이션
     const interval = setInterval(() => {
       setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
+        if (prev >= 90) {
+          return prev;
         }
-        return prev + Math.random() * 15;
+        return prev + Math.random() * 10;
       });
     }, 500);
 
-    setTimeout(() => {
+    try {
+      let result;
+
+      if (activeTab === 'code') {
+        result = await analysisService.analyzeCode(
+          codeState.file,
+          codeState.language,
+          codeState.description
+        );
+      } else {
+        result = await analysisService.analyzeText(
+          textState.description,
+          textState.language || 'undecided'
+        );
+      }
+
+      clearInterval(interval);
+      setProgress(100);
+
+      // 분석 결과 페이지로 이동
+      setTimeout(() => {
+        navigate(`/analysis/${result.data.analysisId}`);
+      }, 300);
+    } catch (err) {
       clearInterval(interval);
       setIsAnalyzing(false);
-      navigate('/analysis/demo_' + Date.now());
-    }, 3000);
+      setError(err.message || '분석 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
   };
 
   if (isAnalyzing) {
@@ -136,6 +164,14 @@ function MainPage() {
           </CardContent>
         </Tabs>
       </Card>
+
+      {/* Error Message */}
+      {error && (
+        <Alert variant="destructive" className="mt-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Analyze Button */}
       <div className="mt-8 flex justify-center">

@@ -12,8 +12,8 @@
 | 백엔드 기본 구조 | ✅ 완료 | Express.js 서버 |
 | 프론트엔드 기본 구조 | ✅ 완료 | React + Vite |
 | UI 컴포넌트 | ✅ 완료 | shadcn/ui 스타일 적용 |
-| Tailwind CSS v4 설정 | ⚠️ 진행중 | 스타일 적용 확인 필요 |
-| API 연동 | ❌ 미완료 | 목업 데이터 사용 중 |
+| Tailwind CSS v4 설정 | ✅ 완료 | v4 문법 적용 |
+| API 연동 | ✅ 완료 | 프론트엔드 API 서비스 구조 완료 |
 | Claude AI 연동 | ❌ 미완료 | - |
 | RAG 파이프라인 | ❌ 미완료 | - |
 
@@ -65,7 +65,10 @@ msa/
 │   │   ├── main.jsx              # React 진입점
 │   │   ├── App.jsx               # 라우터 설정
 │   │   ├── lib/
-│   │   │   └── utils.js          # cn() 유틸리티
+│   │   │   ├── utils.js          # cn() 유틸리티
+│   │   │   └── api.js            # Axios API 클라이언트
+│   │   ├── services/
+│   │   │   └── analysisService.js # 분석 API 서비스
 │   │   ├── components/
 │   │   │   ├── ui/               # shadcn/ui 컴포넌트
 │   │   │   │   ├── button.jsx
@@ -151,27 +154,6 @@ npm run dev
 - 권고사항
 - 통신 방식 제안
 
-## 알려진 이슈
-
-### Tailwind CSS v4 스타일 미적용
-- **증상**: UI가 스타일 없이 렌더링됨
-- **원인**: Tailwind CSS v4는 v3와 다른 설정 방식 사용
-- **현재 상태**: `index.css`에 v4 문법(`@import "tailwindcss"`, `@source`, `@theme`) 적용 완료
-- **해결 방법**: 개발 서버 재시작 필요
-
-```css
-/* index.css - Tailwind v4 설정 */
-@import "tailwindcss";
-
-@source "../index.html";
-@source "./**/*.{js,jsx,ts,tsx}";
-
-@theme {
-  --color-primary: hsl(221.2 83.2% 53.3%);
-  /* ... */
-}
-```
-
 ## API 엔드포인트
 
 | Method | Endpoint | 설명 |
@@ -185,11 +167,12 @@ npm run dev
 
 ## 다음 단계
 
-1. Tailwind CSS v4 스타일 적용 문제 해결
-2. Supabase 데이터베이스 연동
-3. Claude API 연동 (분석 엔진)
-4. Voyage AI 임베딩 연동 (RAG)
-5. 실제 코드 파싱 모듈 개발
+1. ~~Tailwind CSS v4 스타일 적용 문제 해결~~ ✅
+2. ~~프론트엔드 API 연동 구조 설정~~ ✅
+3. Supabase 데이터베이스 연동
+4. Claude API 연동 (분석 엔진)
+5. Voyage AI 임베딩 연동 (RAG)
+6. 실제 코드 파싱 모듈 개발
 
 ## 문서
 

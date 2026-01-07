@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Info, AlertTriangle, ChevronDown, ChevronUp, Database, Link2, Clock, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Info, AlertTriangle, ChevronDown, ChevronUp, Database, Link2, Clock, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import ArchitectureDiagram from '../components/analysis/ArchitectureDiagram';
+import { analysisService } from '@/services/analysisService';
 
-// 데모용 목업 데이터
+// 데모용 목업 데이터 (API 연동 전 또는 데모 ID인 경우 사용)
 const mockAnalysisResult = {
   analysisId: 'anls_demo123',
   status: 'completed',
@@ -86,8 +87,31 @@ function AnalysisResultPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [expandedService, setExpandedService] = useState(null);
+  const [result, setResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const result = mockAnalysisResult;
+  useEffect(() => {
+    const fetchResult = async () => {
+      // 데모 ID인 경우 목업 데이터 사용
+      if (id.startsWith('demo_')) {
+        setResult(mockAnalysisResult);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await analysisService.getResult(id);
+        setResult(response.data);
+      } catch (err) {
+        setError(err.message || '분석 결과를 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchResult();
+  }, [id]);
 
   const formatDate = dateString => {
     return new Date(dateString).toLocaleString('ko-KR', {
@@ -98,6 +122,60 @@ function AnalysisResultPage() {
       minute: '2-digit'
     });
   };
+
+  // 로딩 상태
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4">
+        <div className="relative mb-8">
+          <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
+            <Loader2 className="h-10 w-10 animate-spin text-white" />
+          </div>
+        </div>
+        <h2 className="mb-2 text-2xl font-bold text-slate-900">결과 불러오는 중...</h2>
+        <p className="text-slate-500">분석 결과를 가져오고 있습니다.</p>
+      </div>
+    );
+  }
+
+  // 에러 상태
+  if (error) {
+    return (
+      <div className="container mx-auto max-w-2xl px-4 py-16">
+        <Card className="text-center">
+          <CardContent className="pt-8 pb-8">
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+            </div>
+            <h2 className="mb-2 text-xl font-bold text-slate-900">오류가 발생했습니다</h2>
+            <p className="mb-6 text-slate-500">{error}</p>
+            <Button onClick={() => navigate('/')} variant="primary">
+              메인으로 돌아가기
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 결과가 없는 경우
+  if (!result) {
+    return (
+      <div className="container mx-auto max-w-2xl px-4 py-16">
+        <Card className="text-center">
+          <CardContent className="pt-8 pb-8">
+            <h2 className="mb-2 text-xl font-bold text-slate-900">분석 결과를 찾을 수 없습니다</h2>
+            <p className="mb-6 text-slate-500">요청하신 분석 결과가 존재하지 않습니다.</p>
+            <Button onClick={() => navigate('/')} variant="primary">
+              새 분석 시작
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8 md:py-12">
