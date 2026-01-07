@@ -1,6 +1,8 @@
 import express from 'express';
 import multer from 'multer';
 import { supabase, generateAnalysisId } from '../lib/supabase.js';
+import { analyzeText, analyzeCode } from '../services/analysisService.js';
+import { extractCodeStructure, formatCodeStructureForPrompt } from '../utils/zipParser.js';
 
 const router = express.Router();
 
@@ -54,11 +56,11 @@ router.post('/code', upload.single('file'), async (req, res) => {
 
     const analysisId = generateAnalysisId();
 
-    // Supabase가 설정된 경우 DB에 저장
+    // Supabase가 설정된 경우 DB에 처리 중 상태로 저장
     if (supabase) {
       const { error } = await supabase.from('analyses').insert({
         id: analysisId,
-        status: 'pending',
+        status: 'processing',
         input_type: 'code',
         input_language: language,
         input_description: description || null,
@@ -72,16 +74,79 @@ router.post('/code', upload.single('file'), async (req, res) => {
       }
     }
 
-    // TODO: 실제 분석 로직 구현 (Claude API 연동)
-    // 현재는 pending 상태로 저장만 함
+    // ZIP 파일에서 코드 구조 추출
+    const codeStructure = extractCodeStructure(file.buffer, language);
+    const codeStructureText = formatCodeStructureForPrompt(codeStructure);
+
+    // Claude API로 MSA 분석 수행
+    const analysisResult = await analyzeCode(codeStructureText, language, description);
+
+    // 분석 결과에 파일 통계 추가
+    if (analysisResult.summary) {
+      analysisResult.summary.totalFiles = codeStructure.totalFiles;
+      analysisResult.summary.analyzedFiles = codeStructure.analyzedFiles;
+    }
+
+    // DB에 분석 결과 저장
+    if (supabase) {
+      // 분석 상태 및 결과 업데이트
+      await supabase.from('analyses').update({
+        status: 'completed',
+        detected_domain: analysisResult.summary?.domain,
+        total_files: codeStructure.totalFiles,
+        analyzed_files: codeStructure.analyzedFiles,
+        parsed_data: analysisResult.summary,
+        diagram_data: analysisResult.diagram
+      }).eq('id', analysisId);
+
+      // 서비스 제안 저장
+      if (analysisResult.services?.length > 0) {
+        const servicesData = analysisResult.services.map((s, idx) => ({
+          analysis_id: analysisId,
+          service_name: s.name,
+          responsibility: s.responsibility,
+          service_type: s.type,
+          endpoints: s.endpoints,
+          database_name: s.database,
+          dependencies: s.dependencies,
+          display_order: idx
+        }));
+        await supabase.from('analysis_services').insert(servicesData);
+      }
+
+      // 권고사항 저장
+      if (analysisResult.recommendations?.length > 0) {
+        const recsData = analysisResult.recommendations.map((r, idx) => ({
+          analysis_id: analysisId,
+          recommendation_type: r.type,
+          message: r.message,
+          suggestion: r.suggestion,
+          display_order: idx
+        }));
+        await supabase.from('analysis_recommendations').insert(recsData);
+      }
+
+      // 통신 방식 저장
+      if (analysisResult.communications?.length > 0) {
+        const commsData = analysisResult.communications.map((c, idx) => ({
+          analysis_id: analysisId,
+          from_service: c.from,
+          to_service: c.to,
+          method: c.method,
+          reason: c.reason,
+          display_order: idx
+        }));
+        await supabase.from('analysis_communications').insert(commsData);
+      }
+    }
 
     res.json({
       success: true,
       data: {
         analysisId,
-        status: 'pending',
+        status: 'completed',
         inputType: 'code',
-        message: 'DB에 저장되었습니다. 분석 기능은 추후 구현 예정입니다.'
+        ...analysisResult
       }
     });
   } catch (error) {
@@ -117,11 +182,11 @@ router.post('/text', async (req, res) => {
 
     const analysisId = generateAnalysisId();
 
-    // Supabase가 설정된 경우 DB에 저장
+    // Supabase가 설정된 경우 DB에 처리 중 상태로 저장
     if (supabase) {
       const { error } = await supabase.from('analyses').insert({
         id: analysisId,
-        status: 'pending',
+        status: 'processing',
         input_type: 'text',
         input_language: language || 'undecided',
         input_description: description
@@ -133,16 +198,67 @@ router.post('/text', async (req, res) => {
       }
     }
 
-    // TODO: 실제 분석 로직 구현 (Claude API 연동)
-    // 현재는 pending 상태로 저장만 함
+    // Claude API로 MSA 분석 수행
+    const analysisResult = await analyzeText(description, language);
+
+    // DB에 분석 결과 저장
+    if (supabase) {
+      // 분석 상태 및 결과 업데이트
+      await supabase.from('analyses').update({
+        status: 'completed',
+        detected_domain: analysisResult.parsed?.domain,
+        parsed_data: analysisResult.parsed,
+        diagram_data: analysisResult.diagram
+      }).eq('id', analysisId);
+
+      // 서비스 제안 저장
+      if (analysisResult.services?.length > 0) {
+        const servicesData = analysisResult.services.map((s, idx) => ({
+          analysis_id: analysisId,
+          service_name: s.name,
+          responsibility: s.responsibility,
+          service_type: s.type,
+          endpoints: s.endpoints,
+          database_name: s.database,
+          dependencies: s.dependencies,
+          display_order: idx
+        }));
+        await supabase.from('analysis_services').insert(servicesData);
+      }
+
+      // 권고사항 저장
+      if (analysisResult.recommendations?.length > 0) {
+        const recsData = analysisResult.recommendations.map((r, idx) => ({
+          analysis_id: analysisId,
+          recommendation_type: r.type,
+          message: r.message,
+          suggestion: r.suggestion,
+          display_order: idx
+        }));
+        await supabase.from('analysis_recommendations').insert(recsData);
+      }
+
+      // 통신 방식 저장
+      if (analysisResult.communications?.length > 0) {
+        const commsData = analysisResult.communications.map((c, idx) => ({
+          analysis_id: analysisId,
+          from_service: c.from,
+          to_service: c.to,
+          method: c.method,
+          reason: c.reason,
+          display_order: idx
+        }));
+        await supabase.from('analysis_communications').insert(commsData);
+      }
+    }
 
     res.json({
       success: true,
       data: {
         analysisId,
-        status: 'pending',
+        status: 'completed',
         inputType: 'text',
-        message: 'DB에 저장되었습니다. 분석 기능은 추후 구현 예정입니다.'
+        ...analysisResult
       }
     });
   } catch (error) {

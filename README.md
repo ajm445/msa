@@ -15,7 +15,7 @@
 | Tailwind CSS v4 설정 | ✅ 완료 | v4 문법 적용 |
 | API 연동 | ✅ 완료 | 프론트엔드 API 서비스 구조 완료 |
 | Supabase DB 연동 | ✅ 완료 | 스키마 및 API 연동 완료 |
-| Claude AI 연동 | ❌ 미완료 | - |
+| Claude AI 연동 | ✅ 완료 | MSA 분석 엔진 구현 완료 |
 | RAG 파이프라인 | ❌ 미완료 | - |
 
 ## 기술 스택
@@ -55,9 +55,14 @@ msa/
 │   ├── src/
 │   │   ├── index.js              # Express 서버 진입점
 │   │   ├── lib/
-│   │   │   └── supabase.js       # Supabase 클라이언트
+│   │   │   ├── supabase.js       # Supabase 클라이언트
+│   │   │   └── claude.js         # Claude API 클라이언트
+│   │   ├── services/
+│   │   │   └── analysisService.js # MSA 분석 서비스
+│   │   ├── utils/
+│   │   │   └── zipParser.js      # ZIP 파일 파싱 유틸
 │   │   └── routes/
-│   │       ├── analysis.js       # 분석 API (DB 연동)
+│   │       ├── analysis.js       # 분석 API (Claude 연동)
 │   │       ├── rag.js            # RAG 검색 API
 │   │       └── health.js         # 헬스체크 API
 │   ├── supabase/
@@ -176,9 +181,9 @@ npm run dev
 1. ~~Tailwind CSS v4 스타일 적용 문제 해결~~ ✅
 2. ~~프론트엔드 API 연동 구조 설정~~ ✅
 3. ~~Supabase 데이터베이스 연동~~ ✅
-4. Claude API 연동 (분석 엔진)
+4. ~~Claude API 연동 (분석 엔진)~~ ✅
 5. Voyage AI 임베딩 연동 (RAG)
-6. 실제 코드 파싱 모듈 개발
+6. 프론트엔드-백엔드 통합 테스트
 
 ## 문서
 
