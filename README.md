@@ -14,6 +14,7 @@
 | UI 컴포넌트 | ✅ 완료 | shadcn/ui 스타일 적용 |
 | Tailwind CSS v4 설정 | ✅ 완료 | v4 문법 적용 |
 | API 연동 | ✅ 완료 | 프론트엔드 API 서비스 구조 완료 |
+| Supabase DB 연동 | ✅ 완료 | 스키마 및 API 연동 완료 |
 | Claude AI 연동 | ❌ 미완료 | - |
 | RAG 파이프라인 | ❌ 미완료 | - |
 
@@ -53,10 +54,15 @@ msa/
 ├── backend/                       # 백엔드 서버
 │   ├── src/
 │   │   ├── index.js              # Express 서버 진입점
+│   │   ├── lib/
+│   │   │   └── supabase.js       # Supabase 클라이언트
 │   │   └── routes/
-│   │       ├── analysis.js       # 분석 API
+│   │       ├── analysis.js       # 분석 API (DB 연동)
 │   │       ├── rag.js            # RAG 검색 API
 │   │       └── health.js         # 헬스체크 API
+│   ├── supabase/
+│   │   └── schema.sql            # DB 스키마 정의
+│   ├── .env.example              # 환경 변수 예시
 │   └── package.json
 │
 ├── frontend/                      # 프론트엔드 앱
@@ -169,7 +175,7 @@ npm run dev
 
 1. ~~Tailwind CSS v4 스타일 적용 문제 해결~~ ✅
 2. ~~프론트엔드 API 연동 구조 설정~~ ✅
-3. Supabase 데이터베이스 연동
+3. ~~Supabase 데이터베이스 연동~~ ✅
 4. Claude API 연동 (분석 엔진)
 5. Voyage AI 임베딩 연동 (RAG)
 6. 실제 코드 파싱 모듈 개발
