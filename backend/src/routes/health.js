@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabase, checkConnection } from '../lib/supabase.js';
 import { claude, checkClaudeConnection } from '../lib/claude.js';
+import { isVoyageConfigured, checkVoyageConnection } from '../lib/voyage.js';
 
 const router = express.Router();
 
@@ -11,15 +12,18 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     // 서비스 연결 상태 확인
-    const [dbConnected, claudeConnected] = await Promise.all([
+    const voyageConfigured = isVoyageConfigured();
+
+    const [dbConnected, claudeConnected, voyageConnected] = await Promise.all([
       supabase ? checkConnection() : Promise.resolve(false),
-      claude ? checkClaudeConnection() : Promise.resolve(false)
+      claude ? checkClaudeConnection() : Promise.resolve(false),
+      voyageConfigured ? checkVoyageConnection() : Promise.resolve(false)
     ]);
 
     const services = {
       database: supabase ? (dbConnected ? 'connected' : 'disconnected') : 'not_configured',
       claude_api: claude ? (claudeConnected ? 'connected' : 'disconnected') : 'not_configured',
-      voyage_api: 'not_configured' // 추후 구현
+      voyage_api: voyageConfigured ? (voyageConnected ? 'connected' : 'disconnected') : 'not_configured'
     };
 
     // 전체 상태 판단
