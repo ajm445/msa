@@ -1,0 +1,409 @@
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Save, Plus, Info, AlertTriangle, ChevronDown, ChevronUp, Database, Link2, Clock, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
+import ArchitectureDiagram from '../components/analysis/ArchitectureDiagram';
+
+// 데모용 목업 데이터
+const mockAnalysisResult = {
+  analysisId: 'anls_demo123',
+  status: 'completed',
+  inputType: 'text',
+  createdAt: new Date().toISOString(),
+  parsed: {
+    domain: '이커머스 (쇼핑몰)',
+    features: ['회원가입', '상품 관리', '주문', '결제', '배송 추적'],
+    authMethod: ['소셜 로그인'],
+    paymentMethod: ['카드', '계좌이체']
+  },
+  services: [
+    {
+      name: 'User Service',
+      responsibility: '회원가입, 소셜 로그인, 프로필 관리',
+      type: 'Supporting',
+      endpoints: ['/users', '/auth', '/auth/social'],
+      database: 'user_db',
+      dependencies: []
+    },
+    {
+      name: 'Product Service',
+      responsibility: '상품 정보, 검색, 카테고리 관리',
+      type: 'Core',
+      endpoints: ['/products', '/categories', '/search'],
+      database: 'product_db',
+      dependencies: []
+    },
+    {
+      name: 'Order Service',
+      responsibility: '주문 생성, 주문 상태 관리',
+      type: 'Core',
+      endpoints: ['/orders', '/cart'],
+      database: 'order_db',
+      dependencies: ['User Service', 'Product Service']
+    },
+    {
+      name: 'Payment Service',
+      responsibility: '카드/계좌이체 결제, 환불 처리',
+      type: 'Generic',
+      endpoints: ['/payments', '/refunds'],
+      database: 'payment_db',
+      dependencies: ['Order Service']
+    },
+    {
+      name: 'Shipping Service',
+      responsibility: '배송 추적, 배송사 연동',
+      type: 'Generic',
+      endpoints: ['/shipping', '/tracking'],
+      database: 'shipping_db',
+      dependencies: ['Order Service']
+    }
+  ],
+  recommendations: [
+    {
+      type: 'info',
+      message: '결제 서비스는 외부 PG사 연동이 필요합니다.',
+      suggestion: 'Stripe, 토스페이먼츠 등을 고려해보세요.'
+    },
+    {
+      type: 'warning',
+      message: 'Order와 Payment 간 데이터 정합성에 주의가 필요합니다.',
+      suggestion: 'Saga 패턴 또는 이벤트 소싱을 고려하세요.'
+    }
+  ],
+  communications: [
+    { from: 'Order Service', to: 'User Service', method: 'REST', reason: '사용자 정보 조회' },
+    { from: 'Order Service', to: 'Product Service', method: 'REST', reason: '재고 확인' },
+    { from: 'Order Service', to: 'Payment Service', method: 'Event', reason: '비동기 결제 처리' },
+    { from: 'Order Service', to: 'Shipping Service', method: 'Event', reason: '비동기 배송 처리' }
+  ]
+};
+
+function AnalysisResultPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [expandedService, setExpandedService] = useState(null);
+
+  const result = mockAnalysisResult;
+
+  const formatDate = dateString => {
+    return new Date(dateString).toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="container mx-auto max-w-6xl px-4 py-8 md:py-12">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <Button
+          onClick={() => navigate('/')}
+          variant="ghost"
+          className="gap-2 text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          뒤로가기
+        </Button>
+
+        <div className="flex gap-3">
+          <Button variant="outline" className="gap-2">
+            <Save className="h-4 w-4" />
+            저장
+          </Button>
+          <Button onClick={() => navigate('/')} variant="primary" className="gap-2">
+            <Plus className="h-4 w-4" />
+            새 분석
+          </Button>
+        </div>
+      </div>
+
+      {/* Analysis Info */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
+              <FileText className="h-4 w-4 text-white" />
+            </div>
+            분석 결과
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div>
+              <span className="text-sm text-slate-500">분석 ID</span>
+              <p className="font-medium text-slate-900 font-mono text-sm">{result.analysisId}</p>
+            </div>
+            <div>
+              <span className="text-sm text-slate-500">분석 일시</span>
+              <p className="font-medium text-slate-900">{formatDate(result.createdAt)}</p>
+            </div>
+            <div>
+              <span className="text-sm text-slate-500">입력 방식</span>
+              <p className="font-medium text-slate-900">
+                {result.inputType === 'code' ? '코드 업로드' : '텍스트 설명'}
+              </p>
+            </div>
+            <div>
+              <span className="text-sm text-slate-500">상태</span>
+              <Badge variant="supporting" className="mt-1">완료</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Project Summary */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600">
+              <Clock className="h-4 w-4 text-white" />
+            </div>
+            프로젝트 요약
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <span className="text-sm text-slate-500">도메인</span>
+            <p className="font-medium text-slate-900">{result.parsed.domain}</p>
+          </div>
+          <div>
+            <span className="text-sm text-slate-500">주요 기능</span>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {result.parsed.features.map((feature, idx) => (
+                <Badge key={idx} variant="secondary">{feature}</Badge>
+              ))}
+            </div>
+          </div>
+          {result.parsed.authMethod && (
+            <div>
+              <span className="text-sm text-slate-500">인증 방식</span>
+              <p className="font-medium text-slate-900">{result.parsed.authMethod.join(', ')}</p>
+            </div>
+          )}
+          {result.parsed.paymentMethod && (
+            <div>
+              <span className="text-sm text-slate-500">결제 수단</span>
+              <p className="font-medium text-slate-900">{result.parsed.paymentMethod.join(', ')}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Service Table */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600">
+              <Database className="h-4 w-4 text-white" />
+            </div>
+            서비스 분리 제안
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">서비스명</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">책임</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">유형</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">DB</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.services.map((service, idx) => (
+                  <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                    <td className="py-3 px-4 font-medium text-slate-900">{service.name}</td>
+                    <td className="py-3 px-4 text-slate-600 text-sm">{service.responsibility}</td>
+                    <td className="py-3 px-4">
+                      <Badge variant={service.type.toLowerCase()}>{service.type}</Badge>
+                    </td>
+                    <td className="py-3 px-4 text-slate-600 text-sm font-mono">{service.database}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Architecture Diagram */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600">
+              <Link2 className="h-4 w-4 text-white" />
+            </div>
+            MSA 구조 다이어그램
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ArchitectureDiagram services={result.services} communications={result.communications} />
+          <div className="flex items-center justify-center gap-6 mt-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-0.5 bg-blue-500" />
+              <span className="text-slate-600">REST</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-0.5 border-t-2 border-dashed border-violet-500" />
+              <span className="text-slate-600">Event</span>
+            </div>
+            <div className="flex items-center gap-4 ml-4">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-blue-500" />
+                <span className="text-slate-600">Core</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-emerald-500" />
+                <span className="text-slate-600">Supporting</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-slate-400" />
+                <span className="text-slate-600">Generic</span>
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Service Details */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600">
+              <Database className="h-4 w-4 text-white" />
+            </div>
+            서비스 상세
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {result.services.map((service, idx) => (
+            <div key={idx} className="border border-slate-200 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setExpandedService(expandedService === idx ? null : idx)}
+                className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-slate-900">{service.name}</span>
+                  <Badge variant={service.type.toLowerCase()}>{service.type}</Badge>
+                </div>
+                {expandedService === idx ? (
+                  <ChevronUp className="h-5 w-5 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-slate-400" />
+                )}
+              </button>
+
+              {expandedService === idx && (
+                <div className="px-4 pb-4 border-t border-slate-100 bg-slate-50/50">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                    <div>
+                      <span className="text-sm text-slate-500">책임</span>
+                      <p className="text-slate-900">{service.responsibility}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-slate-500">데이터베이스</span>
+                      <p className="font-mono text-slate-900">{service.database}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-slate-500">엔드포인트</span>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {service.endpoints.map((ep, i) => (
+                          <code key={i} className="px-2 py-0.5 bg-slate-200 rounded text-xs font-mono">{ep}</code>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-slate-500">의존성</span>
+                      <p className="text-slate-900">
+                        {service.dependencies.length > 0 ? service.dependencies.join(', ') : '없음'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Recommendations */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-pink-500 to-rose-600">
+              <Info className="h-4 w-4 text-white" />
+            </div>
+            권고사항
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {result.recommendations.map((rec, idx) => (
+            <Alert key={idx} variant={rec.type === 'warning' ? 'warning' : 'info'}>
+              {rec.type === 'warning' ? (
+                <AlertTriangle className="h-4 w-4" />
+              ) : (
+                <Info className="h-4 w-4" />
+              )}
+              <AlertTitle>{rec.message}</AlertTitle>
+              {rec.suggestion && (
+                <AlertDescription>{rec.suggestion}</AlertDescription>
+              )}
+            </Alert>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Communication Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
+              <Link2 className="h-4 w-4 text-white" />
+            </div>
+            통신 방식 제안
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">From</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">To</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">방식</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">이유</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.communications.map((comm, idx) => (
+                  <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                    <td className="py-3 px-4 text-slate-900">{comm.from}</td>
+                    <td className="py-3 px-4 text-slate-900">{comm.to}</td>
+                    <td className="py-3 px-4">
+                      <Badge variant={comm.method === 'REST' ? 'core' : 'secondary'} className={cn(
+                        comm.method === 'Event' && 'bg-violet-100 text-violet-800'
+                      )}>
+                        {comm.method}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4 text-slate-600 text-sm">{comm.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default AnalysisResultPage;
