@@ -16,7 +16,7 @@
 | API 연동 | ✅ 완료 | 프론트엔드 API 서비스 구조 완료 |
 | Supabase DB 연동 | ✅ 완료 | 스키마 및 API 연동 완료 |
 | Claude AI 연동 | ✅ 완료 | MSA 분석 엔진 구현 완료 |
-| RAG 파이프라인 | ❌ 미완료 | - |
+| RAG 파이프라인 | ✅ 완료 | Voyage AI 임베딩 + pgvector 검색 |
 
 ## 기술 스택
 
@@ -36,7 +36,7 @@
 
 ### AI/ML
 - **Claude API** - 코드/텍스트 분석
-- **Voyage AI** - 코드 임베딩 (예정)
+- **Voyage AI** - 벡터 임베딩 (voyage-3 모델)
 
 ## 프로젝트 구조
 
@@ -56,11 +56,14 @@ msa/
 │   │   ├── index.js              # Express 서버 진입점
 │   │   ├── lib/
 │   │   │   ├── supabase.js       # Supabase 클라이언트
-│   │   │   └── claude.js         # Claude API 클라이언트
+│   │   │   ├── claude.js         # Claude API 클라이언트
+│   │   │   └── voyage.js         # Voyage AI 임베딩 클라이언트
 │   │   ├── services/
-│   │   │   └── analysisService.js # MSA 분석 서비스
+│   │   │   ├── analysisService.js # MSA 분석 서비스
+│   │   │   └── ragService.js     # RAG 파이프라인 서비스
 │   │   ├── utils/
-│   │   │   └── zipParser.js      # ZIP 파일 파싱 유틸
+│   │   │   ├── zipParser.js      # ZIP 파일 파싱 유틸
+│   │   │   └── chunker.js        # Markdown 청킹 유틸
 │   │   └── routes/
 │   │       ├── analysis.js       # 분석 API (Claude 연동)
 │   │       ├── rag.js            # RAG 검색 API
@@ -173,7 +176,10 @@ npm run dev
 | POST | `/api/analysis/text` | 텍스트 설명 분석 |
 | GET | `/api/analysis/:id` | 분석 결과 조회 |
 | DELETE | `/api/analysis/:id` | 분석 결과 삭제 |
-| POST | `/api/rag/search` | MSA 가이드 검색 |
+| POST | `/api/rag/search` | MSA 가이드 벡터 검색 |
+| GET | `/api/rag/documents` | RAG 문서 목록 조회 |
+| GET | `/api/rag/documents/:id/chunks` | 문서 청크 조회 |
+| DELETE | `/api/rag/documents/:id` | RAG 문서 삭제 |
 | GET | `/api/health` | 서버 상태 확인 |
 
 ## 다음 단계
@@ -182,8 +188,10 @@ npm run dev
 2. ~~프론트엔드 API 연동 구조 설정~~ ✅
 3. ~~Supabase 데이터베이스 연동~~ ✅
 4. ~~Claude API 연동 (분석 엔진)~~ ✅
-5. Voyage AI 임베딩 연동 (RAG)
+5. ~~Voyage AI 임베딩 연동 (RAG)~~ ✅
 6. 프론트엔드-백엔드 통합 테스트
+7. MSA 가이드 문서 임베딩 등록
+8. RAG 기반 분석 결과 보강
 
 ## 문서
 
@@ -194,3 +202,4 @@ npm run dev
 - [API 명세서](docs/API_명세서.md)
 - [DB 스키마](docs/DB_스키마_상세.md)
 - [프로젝트 계획서](docs/프로젝트_계획서.md)
+- [RAG 파이프라인 구현 가이드](docs/RAG_파이프라인_구현_가이드.md)
