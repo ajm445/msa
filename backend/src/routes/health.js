@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabase, checkConnection } from '../lib/supabase.js';
-import { claude, checkClaudeConnection } from '../lib/claude.js';
+import { claude, checkClaudeConnection, getUsageStats, resetUsage } from '../lib/claude.js';
 import { isVoyageConfigured, checkVoyageConnection } from '../lib/voyage.js';
 
 const router = express.Router();
@@ -35,7 +35,8 @@ router.get('/', async (req, res) => {
         status: isHealthy ? 'healthy' : 'degraded',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
-        services
+        services,
+        usage: claude ? getUsageStats() : null
       }
     });
   } catch (error) {
@@ -50,6 +51,44 @@ router.get('/', async (req, res) => {
       }
     });
   }
+});
+
+/**
+ * GET /api/health/usage
+ * Claude API 사용량 조회
+ */
+router.get('/usage', (req, res) => {
+  if (!claude) {
+    return res.status(503).json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Claude API가 설정되지 않았습니다.' }
+    });
+  }
+
+  res.json({
+    success: true,
+    data: getUsageStats()
+  });
+});
+
+/**
+ * POST /api/health/usage/reset
+ * Claude API 사용량 초기화
+ */
+router.post('/usage/reset', (req, res) => {
+  if (!claude) {
+    return res.status(503).json({
+      success: false,
+      error: { code: 'NOT_CONFIGURED', message: 'Claude API가 설정되지 않았습니다.' }
+    });
+  }
+
+  resetUsage();
+  res.json({
+    success: true,
+    message: '사용량이 초기화되었습니다.',
+    data: getUsageStats()
+  });
 });
 
 export default router;

@@ -1,4 +1,4 @@
-import claude from '../lib/claude.js';
+import claude, { checkCostLimit, updateUsage } from '../lib/claude.js';
 import { searchRAG } from './ragService.js';
 import { isVoyageConfigured } from '../lib/voyage.js';
 
@@ -221,6 +221,12 @@ export async function analyzeText(description, language) {
     throw new Error('Claude API가 설정되지 않았습니다. ANTHROPIC_API_KEY를 확인해주세요.');
   }
 
+  // 비용 한도 체크
+  const costCheck = checkCostLimit();
+  if (!costCheck.allowed) {
+    throw new Error(`API 호출 제한: ${costCheck.reason}`);
+  }
+
   // RAG 검색으로 관련 가이드 조회
   const ragContext = await getRAGContext(description);
   const prompt = createTextAnalysisPrompt(description, language, ragContext);
@@ -232,6 +238,11 @@ export async function analyzeText(description, language) {
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }]
     });
+
+    // 사용량 업데이트
+    if (response.usage) {
+      updateUsage(response.usage.input_tokens, response.usage.output_tokens);
+    }
 
     const content = response.content[0].text;
     const result = extractJsonFromResponse(content);
@@ -258,6 +269,12 @@ export async function analyzeCode(codeStructure, language, description) {
     throw new Error('Claude API가 설정되지 않았습니다. ANTHROPIC_API_KEY를 확인해주세요.');
   }
 
+  // 비용 한도 체크
+  const costCheck = checkCostLimit();
+  if (!costCheck.allowed) {
+    throw new Error(`API 호출 제한: ${costCheck.reason}`);
+  }
+
   // RAG 검색으로 관련 가이드 조회
   const searchQuery = `${language} MSA 서비스 분리 ${description || ''}`;
   const ragContext = await getRAGContext(searchQuery);
@@ -270,6 +287,11 @@ export async function analyzeCode(codeStructure, language, description) {
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }]
     });
+
+    // 사용량 업데이트
+    if (response.usage) {
+      updateUsage(response.usage.input_tokens, response.usage.output_tokens);
+    }
 
     const content = response.content[0].text;
     const result = extractJsonFromResponse(content);
