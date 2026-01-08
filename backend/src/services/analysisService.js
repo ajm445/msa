@@ -1,4 +1,6 @@
 import claude from '../lib/claude.js';
+import { searchRAG } from './ragService.js';
+import { isVoyageConfigured } from '../lib/voyage.js';
 
 /**
  * MSA 분석을 위한 시스템 프롬프트
@@ -26,11 +28,56 @@ const SYSTEM_PROMPT = `당신은 MSA(Microservice Architecture) 전문가입니�
 반드시 지정된 JSON 형식으로만 응답하세요.`;
 
 /**
+ * RAG 검색으로 관련 MSA 가이드 조회
+ * @param {string} query - 검색 쿼리 (프로젝트 설명)
+ * @returns {Promise<string>} 관련 가이드 컨텍스트
+ */
+async function getRAGContext(query) {
+  if (!isVoyageConfigured()) {
+    console.log('RAG 미설정 - 기본 분석 수행');
+    return '';
+  }
+
+  try {
+    // MSA 관련 키워드로 검색
+    const searchQuery = `MSA 서비스 분리 ${query.substring(0, 200)}`;
+    const results = await searchRAG(searchQuery, {
+      limit: 5,
+      threshold: 0.25
+    });
+
+    if (results.length === 0) {
+      return '';
+    }
+
+    // 검색 결과를 컨텍스트로 변환
+    const context = results.map((r, i) =>
+      `[참고 ${i + 1}] ${r.section} (${r.document})\n${r.content}`
+    ).join('\n\n---\n\n');
+
+    console.log(`RAG 검색: ${results.length}개 관련 가이드 발견`);
+    return context;
+  } catch (error) {
+    console.warn('RAG 검색 실패, 기본 분석 수행:', error.message);
+    return '';
+  }
+}
+
+/**
  * 텍스트 설명 분석을 위한 프롬프트 생성
  */
-function createTextAnalysisPrompt(description, language) {
-  return `다음 프로젝트 설명을 분석하여 MSA 서비스 분리 방안을 제안해주세요.
+function createTextAnalysisPrompt(description, language, ragContext = '') {
+  const ragSection = ragContext ? `
+## 참고 가이드 (RAG 검색 결과)
+아래 MSA 가이드를 참고하여 더 정확한 분석을 수행하세요:
 
+${ragContext}
+
+---
+` : '';
+
+  return `다음 프로젝트 설명을 분석하여 MSA 서비스 분리 방안을 제안해주세요.
+${ragSection}
 ## 프로젝트 설명
 ${description}
 
@@ -83,9 +130,18 @@ ${language || '미정 (자유롭게 제안)'}
 /**
  * 코드 분석을 위한 프롬프트 생성
  */
-function createCodeAnalysisPrompt(codeStructure, language, description) {
-  return `다음 코드 구조를 분석하여 MSA 서비스 분리 방안을 제안해주세요.
+function createCodeAnalysisPrompt(codeStructure, language, description, ragContext = '') {
+  const ragSection = ragContext ? `
+## 참고 가이드 (RAG 검색 결과)
+아래 MSA 가이드를 참고하여 더 정확한 분석을 수행하세요:
 
+${ragContext}
+
+---
+` : '';
+
+  return `다음 코드 구조를 분석하여 MSA 서비스 분리 방안을 제안해주세요.
+${ragSection}
 ## 코드 구조
 ${codeStructure}
 
@@ -165,7 +221,9 @@ export async function analyzeText(description, language) {
     throw new Error('Claude API가 설정되지 않았습니다. ANTHROPIC_API_KEY를 확인해주세요.');
   }
 
-  const prompt = createTextAnalysisPrompt(description, language);
+  // RAG 검색으로 관련 가이드 조회
+  const ragContext = await getRAGContext(description);
+  const prompt = createTextAnalysisPrompt(description, language, ragContext);
 
   try {
     const response = await claude.messages.create({
@@ -200,7 +258,10 @@ export async function analyzeCode(codeStructure, language, description) {
     throw new Error('Claude API가 설정되지 않았습니다. ANTHROPIC_API_KEY를 확인해주세요.');
   }
 
-  const prompt = createCodeAnalysisPrompt(codeStructure, language, description);
+  // RAG 검색으로 관련 가이드 조회
+  const searchQuery = `${language} MSA 서비스 분리 ${description || ''}`;
+  const ragContext = await getRAGContext(searchQuery);
+  const prompt = createCodeAnalysisPrompt(codeStructure, language, description, ragContext);
 
   try {
     const response = await claude.messages.create({
