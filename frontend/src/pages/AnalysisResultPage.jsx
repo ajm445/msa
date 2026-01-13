@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Info, AlertTriangle, ChevronDown, ChevronUp, Database, Link2, Clock, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Download, Plus, Info, AlertTriangle, ChevronDown, ChevronUp, Database, Link2, Clock, FileText, Loader2, AlertCircle, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -90,6 +90,37 @@ function AnalysisResultPage() {
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // 분석 결과를 JSON 파일로 다운로드
+  const handleSaveAsJson = useCallback(() => {
+    if (!result) return;
+
+    const exportData = {
+      analysisId: result.analysisId,
+      exportedAt: new Date().toISOString(),
+      inputType: result.inputType,
+      createdAt: result.createdAt,
+      parsed: result.parsed,
+      services: result.services,
+      recommendations: result.recommendations,
+      communications: result.communications,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `msa-analysis-${result.analysisId}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // 저장 완료 피드백
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
+  }, [result]);
 
   useEffect(() => {
     const fetchResult = async () => {
@@ -191,9 +222,22 @@ function AnalysisResultPage() {
         </Button>
 
         <div className="flex gap-3">
-          <Button variant="outline" className="gap-2">
-            <Save className="h-4 w-4" />
-            저장
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleSaveAsJson}
+          >
+            {isSaved ? (
+              <>
+                <Check className="h-4 w-4 text-green-600" />
+                저장됨
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                저장
+              </>
+            )}
           </Button>
           <Button onClick={() => navigate('/')} variant="primary" className="gap-2">
             <Plus className="h-4 w-4" />
