@@ -1,8 +1,10 @@
 import axios from 'axios';
 
 // API 기본 설정
+// 프로덕션: 같은 서버에서 서빙되므로 상대경로 '/api' 사용
+// 개발: localhost:3000/api 사용
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api'),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

@@ -13,13 +13,16 @@
     "dev:frontend": "cd frontend && npm run dev",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "build": "cd frontend && npm run build",
+    "build:render": "cd frontend && npm install && npm run build && cd ../backend && npm install",
     "start": "cd backend && npm start",
+    "start:render": "cross-env NODE_ENV=production node backend/src/index.js",
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd backend && npm run lint",
     "lint:frontend": "cd frontend && npm run lint"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0"
   },
   "keywords": [
     "msa",
