@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Download, Plus, Info, AlertTriangle, ChevronDown, ChevronUp, Database, Link2, Clock, FileText, Loader2, AlertCircle, Check } from 'lucide-react';
+import { ArrowLeft, Save, Download, Plus, Info, AlertTriangle, ChevronDown, ChevronUp, Database, Link2, Clock, FileText, Loader2, AlertCircle, Check, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -92,11 +92,50 @@ function AnalysisResultPage() {
   const [error, setError] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
 
+  // AI 프롬프트 생성
+  const generateAIPrompt = useCallback((data) => {
+    const serviceList = data.services.map(s => `- ${s.name}: ${s.responsibility}`).join('\n');
+    const commList = data.communications.map(c => `- ${c.from} → ${c.to} (${c.method}): ${c.reason}`).join('\n');
+
+    return `# MSA 프로젝트 생성 요청
+
+이 JSON 파일은 MSA(Microservices Architecture) 분석 결과입니다.
+아래 분석 데이터를 기반으로 실제 프로젝트 구조와 기본 코드를 생성해주세요.
+
+## 프로젝트 개요
+- 도메인: ${data.parsed.domain}
+- 주요 기능: ${data.parsed.features.join(', ')}
+${data.parsed.authMethod ? `- 인증 방식: ${data.parsed.authMethod.join(', ')}` : ''}
+${data.parsed.paymentMethod ? `- 결제 수단: ${data.parsed.paymentMethod.join(', ')}` : ''}
+
+## 서비스 목록
+${serviceList}
+
+## 서비스 간 통신
+${commList}
+
+## 요청사항
+1. 각 마이크로서비스별 프로젝트 폴더 구조를 생성해주세요
+2. 각 서비스의 기본 엔드포인트 코드를 작성해주세요
+3. 서비스 간 통신을 위한 인터페이스를 정의해주세요
+4. Docker Compose 파일을 생성해주세요
+5. API Gateway 설정을 포함해주세요
+
+## 기술 스택 제안
+- 언어/프레임워크: Node.js (Express) 또는 Java (Spring Boot)
+- 데이터베이스: PostgreSQL (각 서비스별 분리)
+- 메시지 브로커: RabbitMQ 또는 Kafka (이벤트 기반 통신용)
+- API Gateway: Kong 또는 Nginx
+- 컨테이너: Docker + Docker Compose
+
+아래 analysisData를 참고하여 프로젝트를 생성해주세요.`;
+  }, []);
+
   // 분석 결과를 JSON 파일로 다운로드
   const handleSaveAsJson = useCallback(() => {
     if (!result) return;
 
-    const exportData = {
+    const analysisData = {
       analysisId: result.analysisId,
       exportedAt: new Date().toISOString(),
       inputType: result.inputType,
@@ -105,6 +144,13 @@ function AnalysisResultPage() {
       services: result.services,
       recommendations: result.recommendations,
       communications: result.communications,
+    };
+
+    const exportData = {
+      _description: "이 파일을 AI(Claude, ChatGPT 등)에게 전달하면 MSA 프로젝트 기본 구조를 생성받을 수 있습니다.",
+      _usage: "AI에게 이 JSON 파일 전체를 붙여넣고 프로젝트 생성을 요청하세요.",
+      aiPrompt: generateAIPrompt(analysisData),
+      analysisData,
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -120,7 +166,7 @@ function AnalysisResultPage() {
     // 저장 완료 피드백
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
-  }, [result]);
+  }, [result, generateAIPrompt]);
 
   useEffect(() => {
     const fetchResult = async () => {
@@ -484,7 +530,7 @@ function AnalysisResultPage() {
       </Card>
 
       {/* Communication Table */}
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
@@ -522,6 +568,39 @@ function AnalysisResultPage() {
               </tbody>
             </table>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* AI 활용 안내 */}
+      <Card className="border-2 border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
+              <Sparkles className="h-4 w-4 text-white" />
+            </div>
+            AI로 프로젝트 생성하기
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-slate-600">
+            이 분석 결과를 AI에게 전달하면 MSA 프로젝트의 기본 구조와 코드를 자동으로 생성받을 수 있습니다.
+          </p>
+          <div className="bg-white rounded-lg p-4 border border-indigo-100">
+            <h4 className="font-medium text-slate-900 mb-2">사용 방법</h4>
+            <ol className="list-decimal list-inside space-y-1 text-sm text-slate-600">
+              <li>위의 <span className="font-medium text-indigo-600">저장</span> 버튼을 클릭하여 JSON 파일을 다운로드합니다</li>
+              <li>Claude, ChatGPT 등 AI 어시스턴트에게 파일 내용을 전달합니다</li>
+              <li>AI가 분석 결과를 기반으로 프로젝트 구조, Docker 설정, 기본 코드를 생성합니다</li>
+            </ol>
+          </div>
+          <div className="flex items-start gap-2 text-sm text-slate-500">
+            <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <p>JSON 파일에는 AI가 이해할 수 있는 프롬프트가 포함되어 있어, 별도의 설명 없이 바로 프로젝트 생성을 요청할 수 있습니다.</p>
+          </div>
+          <Button onClick={handleSaveAsJson} variant="primary" className="w-full gap-2">
+            <Download className="h-4 w-4" />
+            분석 결과 저장 (AI 프롬프트 포함)
+          </Button>
         </CardContent>
       </Card>
     </div>
